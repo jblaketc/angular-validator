@@ -15,11 +15,16 @@ angular.module('angularValidator').directive('angularValidator', ['$injector', '
                 // This is the the scope form model
                 // All validation states are contained here
                 var form_name = DOMForm.attributes['name'].value;
+
+                if(form_name.indexOf("-") !== -1) {
+                    throw "Your form name cannot contain dashes";
+                }
+
                 var scopeForm = $parse(form_name)(scope);
 
                 // Set the default submitted state to false
                 scopeForm.submitted = false;
-                
+
                 // Watch form length to add watches for new form elements
                 scope.$watch(function(){return Object.keys(scopeForm).length;}, function(){
                     // Destroy all the watches
@@ -27,7 +32,7 @@ angular.module('angularValidator').directive('angularValidator', ['$injector', '
                     angular.forEach(watches, function(watch){watch();});
                     setupWatches(DOMForm);
                 });
-              
+
 
                 // Intercept and handle submit events of the form
                 element.on('submit', function(event) {
@@ -58,7 +63,7 @@ angular.module('angularValidator').directive('angularValidator', ['$injector', '
                 };
 
 
-                // Setup watches on all form fields 
+                // Setup watches on all form fields
                 setupWatches(DOMForm);
 
                   //check if there is invalid message service for the entire form; if yes, return the injected service; if no, return false;
@@ -96,7 +101,7 @@ angular.module('angularValidator').directive('angularValidator', ['$injector', '
                             return elementToWatch.value + elementToWatch.required + scopeForm.submitted + checkElementValidity(elementToWatch) + getDirtyValue(scopeForm[elementToWatch.name]) + getValidValue(scopeForm[elementToWatch.name]);
                         },
                         function() {
-                           
+
                             if (scopeForm.submitted){
                                 updateValidationMessage(elementToWatch, formInvalidMessage);
                                 updateValidationClass(elementToWatch);
@@ -145,8 +150,19 @@ angular.module('angularValidator').directive('angularValidator', ['$injector', '
                     // If element has a custom validation function
                     if ("validator" in element.attributes) {
                         // Call the custom validator function
-                        var isElementValid = scope.$eval(element.attributes.validator.value);
-                        scopeForm[element.name].$setValidity("angularValidator", isElementValid);
+                        var isElementValid;
+
+                        //Checks element scope before checking form scope in case of component validation
+                        isElementValid = scope.$eval(angular.element(element).scope().$eval(element.attributes.validator.value));
+
+                        if(isElementValid === undefined) {
+                            isElementValid = scope.$eval(element.attributes.validator.value);
+                        }
+
+                        // In case the name is computed and not yet rendered
+                        if(scopeForm[element.name]) {
+                            scopeForm[element.name].$setValidity("angularValidator", isElementValid);
+                        }
                         return isElementValid;
                     }
                 }
@@ -165,14 +181,14 @@ angular.module('angularValidator').directive('angularValidator', ['$injector', '
                     };
 
                     // Make sure the element is a form field and not a button for example
-                    // Only form elements should have names. 
+                    // Only form elements should have names.
                     if (!(element.name in scopeForm)) {
                         return;
                     }
 
                     var scopeElementModel = scopeForm[element.name];
 
-                    // Remove all validation messages 
+                    // Remove all validation messages
                     var validationMessageElement = isValidationMessagePresent(element);
                     if (validationMessageElement) {
                         validationMessageElement.remove();
@@ -230,7 +246,7 @@ angular.module('angularValidator').directive('angularValidator', ['$injector', '
                 // depending on the validity of the element and the submitted state of the form
                 function updateValidationClass(element) {
                     // Make sure the element is a form field and not a button for example
-                    // Only form fields should have names. 
+                    // Only form fields should have names.
                     if (!(element.name in scopeForm)) {
                         return;
                     }
